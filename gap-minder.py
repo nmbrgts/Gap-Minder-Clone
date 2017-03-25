@@ -9,12 +9,19 @@ from bokeh.layouts import row, column
 from bokeh.models import (
     CategoricalColorMapper, ColumnDataSource,
     Select, Slider, Button, RangeSlider, Range1d,
-    HoverTool
+    HoverTool, Legend
 )
+from bokeh.models.renderers import GlyphRenderer as Glyph
 from bokeh.plotting import figure
 # set hieght and width
 H = 600
 W = 600
+
+# color map palete
+palette=[
+    '#8dd3c7', '#dfdf93', '#bebada',
+    '#fb8072', '#80b1d3', '#fdb462'
+]
 
 # read in gapminder data from AWS
 url = "https://s3-us-west-2.amazonaws.com/gap-minder-flat-files/data.csv"
@@ -88,10 +95,7 @@ def create_plot():
 
     # color mapper
     cmap = CategoricalColorMapper(factors=list(df['Group'].unique()),
-                                  palette=[
-                                      '#8dd3c7', '#ffffb3', '#bebada',
-                                      '#fb8072', '#80b1d3', '#fdb462'
-    ])
+                                  palette=palette)
 
     x_axis_type = xs_select.value.lower()
     y_axis_type = ys_select.value.lower()
@@ -128,10 +132,40 @@ def create_plot():
                size='size',
                color={'field': 'region',
                       'transform': cmap},
-               legend='region',
                alpha=0.7,
                source=source)
+
     return fig
+
+
+def create_legend_fig():
+    leg = figure(height=H,
+                 width=300,
+                 x_axis_type=None,
+                 y_axis_type=None,
+                 min_border=0,
+                 outline_line_color='#FFFFFF')
+
+    leg.toolbar_location = None
+
+    for region, color in zip(df['Group'].unique(), palette):
+        leg.circle(0, 0, color=color, alpha=0.7, legend=region)
+
+    leg.legend.location = 'top_left'
+
+    def invisify(r):
+        r.visible = False
+        return r
+
+    leg.renderers = [(invisify(r) if type(r) == Glyph else r)
+                     for r in leg.renderers]
+    return leg
+
+
+
+    # still needs more see email list!!!
+
+
 
 
 def update(attr, old, new):
@@ -197,6 +231,7 @@ def forward():
 
 
 fig = create_plot()
+legend = create_legend_fig()
 # create dashboard layout
 layout = column(
     row(
@@ -212,7 +247,7 @@ layout = column(
                    stop_button,
                    play_button,
                    forward_button)),
-        fig),
+        fig, legend),
 
     year_slider
 )
