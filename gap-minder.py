@@ -9,16 +9,17 @@ from bokeh.layouts import row, column
 from bokeh.models import (
     CategoricalColorMapper, ColumnDataSource,
     Select, Slider, Button, RangeSlider, Range1d,
-    HoverTool, Legend
+    HoverTool, Legend, Div
 )
 from bokeh.models.renderers import GlyphRenderer as Glyph
 from bokeh.plotting import figure
+
 # set hieght and width
 H = 600
 W = 600
 
 # color map palete
-palette=[
+palette = [
     '#8dd3c7', '#dfdf93', '#bebada',
     '#fb8072', '#80b1d3', '#fdb462'
 ]
@@ -29,22 +30,37 @@ data = requests.get(url).content
 data = data.decode("utf-8")
 data = io.StringIO(data)
 df = pd.read_csv(data, index_col=0)
+# read in gapminder data from flat file... please do this when running locally
+# df = pd.read_csv('./data.csv', index_col=0)
 
 # define widgets for customizing plot
-year_slider = Slider(title='Year', start=1964, end=2013, step=1, value=1964, width=W + 300)
-
-x_select = Select(title='X Value', options=['Life Expectancy', 'Population', 'Fertility'], value='Fertility')
-xs_select = Select(title='Scale', options=['Linear', 'Log'], value='Linear')
-
-y_select = Select(title='Y Value', options=['Life Expectancy', 'Population', 'Fertility'], value='Population')
-ys_select = Select(title='Scale', options=['Linear', 'Log'], value='Linear')
-
-s_select = Select(title='Size Value', options=['Life Expectancy', 'Population', 'Fertility'],
+year_slider = Slider(title='Year',
+                     start=1964, end=2013, step=1,
+                     value=1964,
+                     width=W + 2 * 325)
+x_select = Select(title='X Value',
+                  options=['Life Expectancy', 'Population', 'Fertility'],
+                  value='Fertility')
+xs_select = Select(title='Scale',
+                   options=['Linear', 'Log'],
+                   value='Linear')
+y_select = Select(title='Y Value',
+                  options=['Life Expectancy', 'Population', 'Fertility'],
                   value='Population')
-sr_select = Select(title='Size Scale', options=['Linear', 'Log', 'Square'], value='Linear')
-sr_slider = RangeSlider(title='Scale Range', start=1, end=40, step=1, range=(10, 20))
-
-back_button = Button(label='⏮', width=55, name='Play Through Years')
+ys_select = Select(title='Scale',
+                   options=['Linear', 'Log'],
+                   value='Linear')
+s_select = Select(title='Size Value',
+                  options=['Life Expectancy', 'Population', 'Fertility'],
+                  value='Population')
+sr_select = Select(title='Size Scale',
+                   options=['Linear', 'Log', 'Square'],
+                   value='Linear')
+sr_slider = RangeSlider(title='Scale Range',
+                        start=1, end=40, step=1,
+                        range=(10, 20))
+# buttons for playing through years
+back_button = Button(label='⏮', width=55)
 reverse_button = Button(label='◀', width=55)
 stop_button = Button(label='⏹', width=55)
 play_button = Button(label='▶', width=55)
@@ -70,12 +86,13 @@ def scale(value):
     return(value * m + b)
 
 
+# creates our primary figure
 def create_plot():
-    # refine df by year and create initial column data source
+    # globals to allow access from other callbacks
     global source
     global hover
-    df_year = df.loc[year_slider.value]
 
+    df_year = df.loc[year_slider.value]
     source = ColumnDataSource({
         'x': df_year[x_select.value],
         'y': df_year[y_select.value],
@@ -83,7 +100,6 @@ def create_plot():
         'country': df_year['Country'],
         'region': df_year['Group']
     })
-
     # make a hover tool
     hover = HoverTool(
         tooltips=[
@@ -92,7 +108,6 @@ def create_plot():
             (y_select.value, '@y'),
             (s_select.value, '@size')
         ])
-
     # color mapper
     cmap = CategoricalColorMapper(factors=list(df['Group'].unique()),
                                   palette=palette)
@@ -139,7 +154,7 @@ def create_plot():
 
 
 def create_legend_fig():
-    leg = figure(height=H,
+    leg = figure(height=360,
                  width=300,
                  x_axis_type=None,
                  y_axis_type=None,
@@ -151,7 +166,7 @@ def create_legend_fig():
     for region, color in zip(df['Group'].unique(), palette):
         leg.circle(0, 0, color=color, alpha=0.7, legend=region)
 
-    leg.legend.location = 'top_left'
+    leg.legend.location = 'bottom_left'
 
     def invisify(r):
         r.visible = False
@@ -160,12 +175,6 @@ def create_legend_fig():
     leg.renderers = [(invisify(r) if type(r) == Glyph else r)
                      for r in leg.renderers]
     return leg
-
-
-
-    # still needs more see email list!!!
-
-
 
 
 def update(attr, old, new):
@@ -219,7 +228,7 @@ def stop():
     try:
         curdoc().remove_periodic_callback(itter)
     except Exception:
-        pass
+        pass  # horrible form :c
 
 
 def back():
@@ -232,24 +241,26 @@ def forward():
 
 fig = create_plot()
 legend = create_legend_fig()
+spacer = Div(height=205, width=300)
 # create dashboard layout
 layout = column(
     row(
-        column(x_select,
+        column(spacer,
+               x_select,
                xs_select,
                y_select,
                ys_select,
-               s_select,
-               sr_slider,
-               sr_select,
                row(back_button,
                    reverse_button,
                    stop_button,
                    play_button,
                    forward_button)),
-        fig, legend),
-
-    year_slider
+        fig,
+        column(legend,
+               s_select,
+               sr_slider,
+               sr_select)),
+        year_slider
 )
 
 
